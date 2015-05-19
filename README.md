@@ -1,8 +1,3 @@
-# eGov
-test ver
---------------------------------------------------------
-KT SFS 세팅 가이드
-
 1. 필요 파일
 	* JDK 설치
 		- jdk-7u75-linux-i586.gz
@@ -110,8 +105,117 @@ KT SFS 세팅 가이드
 	GET / HTTP/1.0 (엔터두번)
 	200OK 떨어져야함  ( 400 클라문제 500대면 서버문제)
 	
-	
-	
-	
+------------------------------------------------------------------------------------------------------------------------
+MCSAuth.java
+	public String makeCryptograph_EUC_KR(String data, String authKeyValue){
+		String token = "";
+		
+		try {			
+			token = encrypto2(data.getBytes("EUC-KR"), authKeyValue.getBytes());	
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+		
+		return token;
+	}
+-------------------------------------------
+XmlMaking.java
+package com.kt.xroshot.xml;
 
+import java.util.ArrayList;
+
+import com.kt.xroshot.auth.AuthKey;
+import com.kt.xroshot.auth.MCSAuth;
+
+public class XmlMaking {
 	
+	AuthKey authKey = null;
+	MCSAuth mcsAuth = null;
+	String authKeyValue = "";
+	int authKeyIndex = -1;
+	String oneTimeKeyValue = "";
+	
+	public XmlMaking(String cert) {
+		this.authKey = new AuthKey();
+		this.authKey.getAuthKey(cert);		
+		this.mcsAuth = new MCSAuth();
+		this.authKeyValue = this.authKey.getAuthKey();
+		this.authKeyIndex = this.authKey.getIndex();		
+	}	
+
+	public String getServerTime(String id){		 
+		String serverTimeRequest = "<?xml version='1.0' encoding='UTF-8'?>\r"
+								 + "  <MAS method='req_auth'>\r"
+								 + "  <ServiceProviderID>" + id + "</ServiceProviderID>\r"
+								 + "</MAS>\0";				
+				
+		return serverTimeRequest.replace("'", "\"");
+	}
+	
+	public String getRequestLoginXml(String id, String pw, String endUserID, String serverTime, String oneTimeKey){
+				
+		String authTicket = this.authKey.makeAuthTicket(id, pw, endUserID, serverTime, oneTimeKey);		
+		String eEncodedAuthTicket = mcsAuth.makeCryptograph(authTicket, this.authKeyValue);	
+		this.oneTimeKeyValue = oneTimeKey;
+		String login = "<?xml version='1.0' encoding='UTF-8'?>\r"
+					 + "<MAS method='req_regist'>\r"
+					 + "  <ServiceProviderID>" + id + "</ServiceProviderID>\r"
+					 + "  <EndUserID>" + endUserID + "</EndUserID>\r"
+					 + "  <AuthTicket>"  + eEncodedAuthTicket + "</AuthTicket>\r"								
+					 + "  <AuthKey>" + Integer.toString(authKeyIndex) + "</AuthKey>\r"
+					 + "  <Version>1.0.15</Version>\r"
+					 + "</MAS>\0";
+		
+		return login.replace("'", "\"");					
+	} 
+	
+	public String getSms(String callbackNumber, String customMessageID,
+			ArrayList<String> receiveNumbers, String subject, String content){
+		
+		String eCallbackNumber = mcsAuth.makeCryptograph(callbackNumber, this.oneTimeKeyValue);
+		String eContent = mcsAuth.makeCryptograph_EUC_KR(content, this.oneTimeKeyValue);		
+		String receiveNumber = "";
+		
+		for (int i=0; i<receiveNumbers.size(); i++){
+			String phoneNumber = receiveNumbers.get(i);
+			String ePhoneNumber = mcsAuth.makeCryptograph(phoneNumber, this.oneTimeKeyValue);
+			receiveNumber += "    <ReceiveNumber seqNo='" + (i+1) + "'>" + ePhoneNumber + "</ReceiveNumber>\r";		
+		}
+		 
+		String sms =  "<?xml version='1.0' encoding='UTF-8'?>\r"
+					+ "<MAS method='req_send_message_2'>\r"
+					+ "  <MessageType>1</MessageType>\r"
+					+ "  <MessageSubType>1</MessageSubType>\r"
+					+ "  <CallbackNumber>" + eCallbackNumber +  "</CallbackNumber>\r"
+					+ "  <CustomMessageID>" + customMessageID + "</CustomMessageID>\r"
+					+ "  <Message>\r"
+					+ 		receiveNumber 
+					+ "    <Subject>" + subject + "</Subject>\r"
+					+ "    <Content>" + eContent + "</Content>\r"
+					+ "  </Message>\r"
+					+ "</MAS>\0";
+		
+		return sms.replace("'", "\"");
+	}
+	
+	public String getAlive(){
+		String alive = "<?xml version='1.0' encoding='UTF-8'?>\r"
+					 + "<MAS method='req_ping'>\r"
+					 + "  <Result>0</Result>\r"
+					 + "</MAS>\0";
+		
+		return alive.replace("'", "\"");
+	}
+	
+	public String getLogOut(){
+		String logOut = "<?xml version='1.0' encoding='UTF-8'?>\r"
+				 + "<MAS method='req_unregist'>\r"
+				 + "  <Result>0</Result>\r"
+				 + "</MAS>\0";
+	
+		return logOut.replace("'", "\"");
+	} 
+}
+
+
+
