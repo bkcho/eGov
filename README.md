@@ -217,5 +217,23 @@ public class XmlMaking {
 	} 
 }
 
+--- 5월 26일
+http://titaniumspider.tistory.com/215
+
+// gitlab 설치 
+sudo yum gitlab
+sudo yum install openssh-server
+sudo systemctl enable sshd
+sudo systemctl start sshd
+sudo yum search java
+sudo yum search openssh*
+sudo yum search openssh
+sudo yum install openssh-server.x86_64
+sudo systemctl
+sudo yum install postfix
+curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
+sudo yum install gitlab-ce
+sudo -e /etc/gitlab/gitlab.rb
+sudo gitlab-ctl reconfigure
 
 
